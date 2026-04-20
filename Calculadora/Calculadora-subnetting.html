@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Subnetting Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .binary-text { font-family: 'Courier New', Courier, monospace; }
+        .gradient-bg { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-slate-800 mb-2">Calculadora de Subnetting</h1>
+            <p class="text-slate-500 uppercase tracking-widest text-sm">Ingeniería de Redes IPv4</p>
+        </header>
+
+        <!-- Main Form Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 mb-8 border border-gray-100">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Dirección IP de Host</label>
+                    <input type="text" id="ipInput" placeholder="Ej: 10.101.99.228" 
+                           class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Máscara Original</label>
+                    <input type="text" id="maskOrigInput" placeholder="Ej: 255.0.0.0 o /8" 
+                           class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Máscara Nueva</label>
+                    <input type="text" id="maskNewInput" placeholder="Ej: 255.255.128.0 o /17" 
+                           class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+            </div>
+            
+            <button onclick="calculateSubnet()" 
+                    class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition transform active:scale-95">
+                Calcular Subredes
+            </button>
+        </div>
+
+        <!-- Result Section (Hidden by default) -->
+        <div id="results" class="hidden space-y-8 animate-in fade-in duration-500">
+            
+            <!-- Summary Table -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+                <div class="bg-slate-800 px-6 py-4">
+                    <h2 class="text-white font-bold text-lg">Resultados del Cálculo</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Cantidad de bits de subred ($n$)</td>
+                                <td id="resSubnetBits" class="px-6 py-4 text-blue-600 font-bold"></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Cantidad de subredes creadas</td>
+                                <td id="resSubnetCount" class="px-6 py-4 text-blue-600 font-bold"></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Cantidad de bits de host por subred ($h$)</td>
+                                <td id="resHostBits" class="px-6 py-4 text-blue-600 font-bold"></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Cantidad de hosts por subred</td>
+                                <td id="resHostCount" class="px-6 py-4 text-blue-600 font-bold"></td>
+                            </tr>
+                            <tr class="bg-blue-50/50">
+                                <td class="px-6 py-4 font-semibold text-gray-800">Dirección de Red</td>
+                                <td id="resNetworkAddr" class="px-6 py-4 text-slate-900 font-mono font-bold"></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Primer Host Útil</td>
+                                <td id="resFirstHost" class="px-6 py-4 text-slate-900 font-mono"></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 font-semibold text-gray-600">Último Host Útil</td>
+                                <td id="resLastHost" class="px-6 py-4 text-slate-900 font-mono"></td>
+                            </tr>
+                            <tr class="bg-red-50/50">
+                                <td class="px-6 py-4 font-semibold text-gray-800">Dirección de Broadcast</td>
+                                <td id="resBroadcastAddr" class="px-6 py-4 text-red-600 font-mono font-bold"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Explanation -->
+            <div class="bg-slate-900 rounded-2xl shadow-xl p-6 md:p-8 text-slate-300">
+                <h3 class="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-4">Explicación Paso a Paso</h3>
+                
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="text-blue-400 font-bold mb-2">1. Conversión a Binario</h4>
+                        <div id="stepBinary" class="bg-slate-800 p-4 rounded-lg overflow-x-auto text-sm leading-relaxed binary-text">
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-blue-400 font-bold mb-2">2. Análisis de Bits</h4>
+                        <p id="stepBitsAnalysis"></p>
+                    </div>
+
+                    <div>
+                        <h4 class="text-blue-400 font-bold mb-2">3. Determinación de la Red</h4>
+                        <p id="stepNetworkCalc" class="mb-4"></p>
+                        <div id="stepAndTable" class="bg-slate-800 p-4 rounded-lg overflow-x-auto text-xs binary-text">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded shadow-md">
+        </div>
+
+    </div>
+
+    <script>
+        function ipToInt(ip) {
+            return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+        }
+
+        function intToIp(int) {
+            return [
+                (int >>> 24) & 0xFF,
+                (int >>> 16) & 0xFF,
+                (int >>> 8) & 0xFF,
+                int & 0xFF
+            ].join('.');
+        }
+
+        function getMaskFromInput(input) {
+            if (input.startsWith('/')) {
+                const bits = parseInt(input.substring(1));
+                return bits;
+            }
+            if (input.includes('.')) {
+                const binary = ipToInt(input).toString(2);
+                const match = binary.match(/^1+/);
+                return match ? match[0].length : 0;
+            }
+            const numeric = parseInt(input);
+            if (!isNaN(numeric) && numeric <= 32) return numeric;
+            return null;
+        }
+
+        function toBinaryString(int) {
+            return (int >>> 0).toString(2).padStart(32, '0').match(/.{8}/g).join('.');
+        }
+
+        function calculateSubnet() {
+            const ipStr = document.getElementById('ipInput').value.trim();
+            const mOrigStr = document.getElementById('maskOrigInput').value.trim();
+            const mNewStr = document.getElementById('maskNewInput').value.trim();
+            const errorDiv = document.getElementById('errorMessage');
+            const resultsDiv = document.getElementById('results');
+
+            try {
+                errorDiv.classList.add('hidden');
+                
+                if (!ipStr || !mOrigStr || !mNewStr) throw "Por favor complete todos los campos.";
+
+                const ipInt = ipToInt(ipStr);
+                const cOrig = getMaskFromInput(mOrigStr);
+                const cNew = getMaskFromInput(mNewStr);
+
+                if (cOrig === null || cNew === null) throw "Máscaras inválidas.";
+                if (cNew < cOrig) throw "La nueva máscara debe ser mayor o igual a la original.";
+
+                // Fórmulas
+                const n = cNew - cOrig;
+                const h = 32 - cNew;
+                const subnetCount = Math.pow(2, n);
+                const hostCount = Math.pow(2, h) - 2;
+
+                const maskNewInt = (~0 << (32 - cNew)) >>> 0;
+                const networkInt = (ipInt & maskNewInt) >>> 0;
+                const wildcardMask = (~maskNewInt) >>> 0;
+                const broadcastInt = (networkInt | wildcardMask) >>> 0;
+
+                // Visualización
+                document.getElementById('resSubnetBits').innerText = n;
+                document.getElementById('resSubnetCount').innerText = subnetCount.toLocaleString();
+                document.getElementById('resHostBits').innerText = h;
+                document.getElementById('resHostCount').innerText = hostCount < 0 ? 0 : hostCount.toLocaleString();
+                document.getElementById('resNetworkAddr').innerText = intToIp(networkInt);
+                document.getElementById('resFirstHost').innerText = intToIp(networkInt + 1);
+                document.getElementById('resLastHost').innerText = intToIp(broadcastInt - 1);
+                document.getElementById('resBroadcastAddr').innerText = intToIp(broadcastInt);
+
+                // Explicación Binaria
+                const ipBin = toBinaryString(ipInt);
+                const maskBin = toBinaryString(maskNewInt);
+                const netBin = toBinaryString(networkInt);
+
+                document.getElementById('stepBinary').innerHTML = `
+                    IP Host: ${ipBin}<br>
+                    Mascara: ${maskBin} (/${cNew})
+                `;
+
+                document.getElementById('stepBitsAnalysis').innerHTML = `
+                    Hemos pasado de una máscara $/${cOrig}$ a una $/${cNew}$. <br>
+                    Esto significa que hemos "prestado" <strong>${n} bits</strong> de la porción de host para subredes ($2^{${n}} = ${subnetCount}$). <br>
+                    Nos quedan <strong>${h} bits</strong> para hosts, lo que permite $2^{${h}} - 2 = ${hostCount}$ direcciones útiles por subred.
+                `;
+
+                document.getElementById('stepAndTable').innerHTML = `
+                    &nbsp;&nbsp;${ipBin} (IP)<br>
+                    AND ${maskBin} (Máscara)<br>
+                    ---<hr class="border-slate-600 my-1">
+                    &nbsp;&nbsp;${netBin} (Red: ${intToIp(networkInt)})
+                `;
+
+                document.getElementById('stepNetworkCalc').innerHTML = `
+                    La dirección de red se obtiene aplicando la operación <strong>AND</strong> bit a bit entre la IP del host y la nueva máscara. 
+                    El broadcast se obtiene poniendo en '1' todos los bits de la parte de host (${h} bits finales).
+                `;
+
+                resultsDiv.classList.remove('hidden');
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (err) {
+                errorDiv.innerText = err;
+                errorDiv.classList.remove('hidden');
+                resultsDiv.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
